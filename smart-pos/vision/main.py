@@ -17,12 +17,24 @@ DATABASE_URL = "https://income-tracker-f37cf-default-rtdb.firebaseio.com"
 # Using REST API to push to Firebase Realtime Database
 def push_to_db(item):
     print(f"[FIREBASE PUSH] {json.dumps(item)}")
+    print('\a', end='', flush=True) # Beep sound for audio feedback!
     try:
         # Convert timestamp to human readable for mobile app display
         item['time'] = datetime.fromtimestamp(item['timestamp']).strftime('%I:%M %p')
         response = requests.post(f"{DATABASE_URL}/scans.json", json=item)
         if response.status_code != 200:
-            print("Failed to push:", response.text)
+            print("Failed to push scan:", response.text)
+            
+        # Inventory Deduct Logic
+        # We use the item name as the key in the inventory database
+        inv_key = item['name'].replace(" ", "_").replace(".", "").replace("/", "")
+        inv_resp = requests.get(f"{DATABASE_URL}/inventory/{inv_key}.json")
+        if inv_resp.status_code == 200 and inv_resp.text != 'null':
+            current_stock = int(inv_resp.text)
+            new_stock = current_stock - 1
+            requests.put(f"{DATABASE_URL}/inventory/{inv_key}.json", json=new_stock)
+            print(f"📉 Deducted inventory for {inv_key}: {new_stock} left")
+            
     except Exception as e:
         print("Network error:", e)
 

@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { listenToScans } from '../../src/services/firebase';
+import { listenToScans, listenToInventory } from '../../src/services/firebase';
 
 export default function DashboardScreen() {
   const [scans, setScans] = useState<any[]>([]);
   const [totalSales, setTotalSales] = useState(0);
+  const [inventory, setInventory] = useState<any>({});
 
   useEffect(() => {
     listenToScans((data) => {
@@ -14,6 +15,10 @@ export default function DashboardScreen() {
       // Calculate total sales
       const total = data.reduce((sum: number, item: any) => sum + (Number(item.price) || 0), 0);
       setTotalSales(total);
+    });
+
+    listenToInventory((data) => {
+      setInventory(data);
     });
   }, []);
   
@@ -51,9 +56,22 @@ export default function DashboardScreen() {
         </View>
 
         {/* Inventory Warnings */}
-        <View style={styles.warningBanner}>
-          <Text style={styles.warningText}>⚠️ Low Stock: Parle-G Biscuits (2 left)</Text>
-        </View>
+        {Object.keys(inventory).length === 0 && (
+          <View style={styles.warningBanner}>
+            <Text style={styles.warningText}>💡 Tip: Add items to /inventory in Firebase to see live stock warnings!</Text>
+          </View>
+        )}
+        
+        {Object.keys(inventory).map(key => {
+          if (inventory[key] <= 5) {
+            return (
+              <View key={key} style={styles.warningBanner}>
+                <Text style={styles.warningText}>⚠️ Low Stock: {key.replace(/_/g, ' ')} ({inventory[key]} left)</Text>
+              </View>
+            );
+          }
+          return null;
+        })}
 
         {/* Recent Scans */}
         <Text style={styles.sectionTitle}>Recent Scans</Text>

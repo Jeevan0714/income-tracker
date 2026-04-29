@@ -43,3 +43,11 @@ export const listenToScans = (callback: (data: any) => void) => {
     }
   });
 };
+
+export const listenToInventory = (callback: (data: any) => void) => {
+  const invRef = ref(db, 'inventory/');
+  onValue(invRef, (snapshot) => {
+    const data = snapshot.val();
+    callback(data || {});
+  });
+};
