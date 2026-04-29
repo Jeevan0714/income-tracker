@@ -1,0 +1,5 @@
+opencv-python
+pyzbar
+ultralytics
+firebase-admin
+numpy
