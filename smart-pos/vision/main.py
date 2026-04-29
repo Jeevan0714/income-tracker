@@ -17,7 +17,8 @@ DATABASE_URL = "https://income-tracker-f37cf-default-rtdb.firebaseio.com"
 # Using REST API to push to Firebase Realtime Database
 def push_to_db(item):
     print(f"[FIREBASE PUSH] {json.dumps(item)}")
-    print('\a', end='', flush=True) # Beep sound for audio feedback!
+    # Play a reliable system 'ding' sound on Ubuntu in the background
+    os.system("paplay /usr/share/sounds/freedesktop/stereo/complete.oga 2>/dev/null &")
     try:
         # Convert timestamp to human readable for mobile app display
         item['time'] = datetime.fromtimestamp(item['timestamp']).strftime('%I:%M %p')
@@ -38,17 +39,22 @@ def push_to_db(item):
     except Exception as e:
         print("Network error:", e)
 
-# Debounce settings
-# We don't want to register the same item multiple times per second
+# Debounce & Robustness settings
 DEBOUNCE_TIME = 3.0 # seconds
-seen_items = {}
+seen_items = {} # Prevents duplicate pushes
+
+CONFIDENCE_THRESHOLD = 0.65
+REQUIRED_CONSECUTIVE_FRAMES = 5
+frame_buffers = {} # Tracks consecutive frames seen
 
 def process_frame(frame):
     current_time = time.time()
     detected_items = []
+    current_seen_this_frame = set()
     
-    # 1. Barcode scanning
-    barcodes = decode(frame)
+    # 1. Barcode scanning (Enhanced with Grayscale)
+    gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    barcodes = decode(gray_frame)
     for barcode in barcodes:
         barcode_data = barcode.data.decode('utf-8')
         barcode_type = barcode.type
@@ -72,37 +78,54 @@ def process_frame(frame):
             cv2.putText(frame, barcode_data, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             
     # 2. YOLO Object Detection
-    # Run inference only on every frame
     results = model(frame, stream=True, verbose=False)
     for r in results:
         boxes = r.boxes
         for box in boxes:
+            conf = float(box.conf[0])
+            if conf < CONFIDENCE_THRESHOLD:
+                continue # Ignore low confidence guesses
+                
             # Class ID
             cls_id = int(box.cls[0])
             class_name = model.names[cls_id]
             
-            # Filter for specific objects (e.g. cup, bottle, sandwich, hot dog, pizza, donut, cake)
+            # Filter for specific objects
             allowed_classes = ['cup', 'bottle', 'sandwich', 'hot dog', 'pizza', 'donut', 'cake', 'bowl', 'apple', 'orange']
             
             if class_name in allowed_classes:
-                # Check debounce
-                if class_name not in seen_items or (current_time - seen_items[class_name]) > DEBOUNCE_TIME:
-                    seen_items[class_name] = current_time
-                    item = {
-                        "id": str(uuid.uuid4()),
-                        "name": f"{class_name.capitalize()}",
-                        "price": 20, # Mock price
-                        "timestamp": current_time,
-                        "type": "vision",
-                        "data": class_name
-                    }
-                    detected_items.append(item)
-                    
-                # Draw on frame
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
-                cv2.putText(frame, class_name, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+                current_seen_this_frame.add(class_name)
+                frame_buffers[class_name] = frame_buffers.get(class_name, 0) + 1
                 
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                
+                if frame_buffers[class_name] >= REQUIRED_CONSECUTIVE_FRAMES:
+                    # Confirmed scan (Draw Green)
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(frame, f"{class_name.capitalize()} ({conf:.2f})", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    
+                    # Check debounce
+                    if class_name not in seen_items or (current_time - seen_items[class_name]) > DEBOUNCE_TIME:
+                        seen_items[class_name] = current_time
+                        item = {
+                            "id": str(uuid.uuid4()),
+                            "name": f"{class_name.capitalize()}",
+                            "price": 20, # Mock price
+                            "timestamp": current_time,
+                            "type": "vision",
+                            "data": class_name
+                        }
+                        detected_items.append(item)
+                else:
+                    # Buffering scan (Draw Orange)
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 165, 255), 2)
+                    cv2.putText(frame, f"Scanning... {frame_buffers[class_name]}/{REQUIRED_CONSECUTIVE_FRAMES}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 2)
+
+    # Reset buffer for items that disappeared in this frame (Anti-Flicker)
+    for k in list(frame_buffers.keys()):
+        if k not in current_seen_this_frame:
+            frame_buffers[k] = 0
+            
     return frame, detected_items
 
 def main():
