@@ -5,19 +5,26 @@ import time
 import json
 import uuid
 import os
-
-# To use Firebase later, uncomment and set up the admin SDK
-# import firebase_admin
-# from firebase_admin import credentials, db
+import requests
+from datetime import datetime
 
 print("Loading YOLOv8 model...")
 model = YOLO('yolov8n.pt') # Using pretrained nano model for speed
 print("Model loaded.")
 
-# Placeholder for firebase push
+DATABASE_URL = "https://income-tracker-f37cf-default-rtdb.firebaseio.com"
+
+# Using REST API to push to Firebase Realtime Database
 def push_to_db(item):
     print(f"[FIREBASE PUSH] {json.dumps(item)}")
-    # db.reference('/scans').push(item)
+    try:
+        # Convert timestamp to human readable for mobile app display
+        item['time'] = datetime.fromtimestamp(item['timestamp']).strftime('%I:%M %p')
+        response = requests.post(f"{DATABASE_URL}/scans.json", json=item)
+        if response.status_code != 200:
+            print("Failed to push:", response.text)
+    except Exception as e:
+        print("Network error:", e)
 
 # Debounce settings
 # We don't want to register the same item multiple times per second

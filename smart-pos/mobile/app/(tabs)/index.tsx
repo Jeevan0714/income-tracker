@@ -2,18 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-
-// Mock Data for Firebase
-const MOCK_SCANS = [
-  { id: '1', name: 'Fresh: Chai', price: 20, time: '10:45 AM', type: 'vision' },
-  { id: '2', name: 'Barcode: 8901030', price: 50, time: '10:42 AM', type: 'barcode' },
-  { id: '3', name: 'Fresh: Samosa', price: 15, time: '10:30 AM', type: 'vision' },
-  { id: '4', name: 'Fresh: Chai', price: 20, time: '10:28 AM', type: 'vision' },
-];
+import { listenToScans } from '../../src/services/firebase';
 
 export default function DashboardScreen() {
-  const [scans, setScans] = useState(MOCK_SCANS);
-  const [totalSales, setTotalSales] = useState(105);
+  const [scans, setScans] = useState<any[]>([]);
+  const [totalSales, setTotalSales] = useState(0);
+
+  useEffect(() => {
+    listenToScans((data) => {
+      setScans(data);
+      // Calculate total sales
+      const total = data.reduce((sum: number, item: any) => sum + (Number(item.price) || 0), 0);
+      setTotalSales(total);
+    });
+  }, []);
   
   return (
     <SafeAreaView style={styles.container}>

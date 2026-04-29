@@ -4,21 +4,29 @@
 // import { initializeApp } from 'firebase/app';
 // import { getDatabase, ref, onValue } from 'firebase/database';
 
-export const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDsLuOuaWxEjM8MDBs1gsBcZ9RaJCeC_4E",
+  authDomain: "income-tracker-f37cf.firebaseapp.com",
+  projectId: "income-tracker-f37cf",
+  storageBucket: "income-tracker-f37cf.firebasestorage.app",
+  messagingSenderId: "398179853269",
+  appId: "1:398179853269:web:8a0b079d6c3fa09443d35c"
 };
 
-// const app = initializeApp(firebaseConfig);
-// export const db = getDatabase(app);
+import { getDatabase, ref, onValue } from "firebase/database";
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+export const db = getDatabase(app);
 
 // Example listener setup for the React Native App
-/*
 export const listenToScans = (callback: (data: any) => void) => {
   const scansRef = ref(db, 'scans/');
   onValue(scansRef, (snapshot) => {
@@ -30,7 +38,8 @@ export const listenToScans = (callback: (data: any) => void) => {
          ...data[key]
        }));
        callback(parsedScans.reverse()); // latest first
+    } else {
+       callback([]);
     }
   });
 };
-*/
